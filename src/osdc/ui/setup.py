@@ -152,58 +152,61 @@ class SetupWizard:
         def report(p: bootstrap.Progress) -> None:
             self.status.text = p.detail or p.stage
 
-        # 1. Ollama itself.
-        if not bootstrap.ollama_installed():
-            self.status.text = "Installing Ollama…"
-            self.progress.props("indeterminate")
-            ok = await asyncio.to_thread(bootstrap.install_ollama, report)
-            if not ok:
-                self._fail(
-                    "Couldn't install Ollama automatically. Install it from ollama.com, "
-                    "then click again."
-                )
+        try:
+            # 1. Ollama itself.
+            if not bootstrap.ollama_installed():
+                self.status.text = "Installing Ollama…"
+                self.progress.props("indeterminate")
+                ok = await asyncio.to_thread(bootstrap.install_ollama, report)
+                if not ok:
+                    self._fail(
+                        "Couldn't install Ollama automatically. Install it from ollama.com, "
+                        "then click again."
+                    )
+                    return
+
+            # 2. The server.
+            if not await asyncio.to_thread(bootstrap.server_running, self.c.settings.llm_host):
+                self.status.text = "Starting Ollama…"
+                await asyncio.to_thread(bootstrap.start_server)
+                for _ in range(30):
+                    if await asyncio.to_thread(bootstrap.server_running, self.c.settings.llm_host):
+                        break
+                    await asyncio.sleep(1)
+                else:
+                    self._fail("Ollama is installed but won't start. Try launching it manually.")
+                    return
+
+            # 3. The weights. This is the multi-gigabyte part, so show real progress — an
+            #    indeterminate spinner for ten minutes is indistinguishable from a hang.
+            self.progress.props(remove="indeterminate")
+            failed = False
+            for update in await asyncio.to_thread(
+                lambda: list(bootstrap.pull_model(self.choice.name, self.c.settings.llm_host))
+            ):
+                report(update)
+                if update.fraction is not None:
+                    self.progress.value = update.fraction
+                if update.stage == "error":
+                    failed = True
+            if failed:
+                self._fail(self.status.text)
                 return
 
-        # 2. The server.
-        if not await asyncio.to_thread(bootstrap.server_running, self.c.settings.llm_host):
-            self.status.text = "Starting Ollama…"
-            await asyncio.to_thread(bootstrap.start_server)
-            for _ in range(30):
-                if await asyncio.to_thread(bootstrap.server_running, self.c.settings.llm_host):
-                    break
-                await asyncio.sleep(1)
-            else:
-                self._fail("Ollama is installed but won't start. Try launching it manually.")
-                return
+            # 4. Remember all of it.
+            settings = self.c.settings
+            settings.llm_model = self.choice.name
+            settings.watched_folders = self.folders
+            settings.onboarded = True
+            save_settings(settings)
 
-        # 3. The weights. This is the multi-gigabyte part, so show real progress — an
-        #    indeterminate spinner for ten minutes is indistinguishable from a hang.
-        self.progress.props(remove="indeterminate")
-        failed = False
-        for update in await asyncio.to_thread(
-            lambda: list(bootstrap.pull_model(self.choice.name, self.c.settings.llm_host))
-        ):
-            report(update)
-            if update.fraction is not None:
-                self.progress.value = update.fraction
-            if update.stage == "error":
-                failed = True
-        if failed:
-            self._fail(self.status.text)
-            return
-
-        # 4. Remember all of it.
-        settings = self.c.settings
-        settings.llm_model = self.choice.name
-        settings.watched_folders = self.folders
-        settings.onboarded = True
-        save_settings(settings)
-
-        self.status.text = "Ready."
-        self.progress.value = 1.0
-        ui.notify("Setup complete — restart to start watching your folders", type="positive")
-        await asyncio.sleep(0.6)
-        ui.navigate.to("/")
+            self.status.text = "Ready."
+            self.progress.value = 1.0
+            ui.notify("Setup complete — restart to start watching your folders", type="positive")
+            await asyncio.sleep(0.6)
+            ui.navigate.to("/")
+        except Exception as exc:
+            self._fail(f"Setup failed: {exc}")
 
     def _fail(self, message: str) -> None:
         self.progress.visible = False

@@ -1,6 +1,6 @@
 [project]
 name = "osdc"
-version = "0.1.1"
+version = "0.1.2"
 description = "Local-first AI document & image management system"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -25,6 +25,7 @@ dependencies = [
     "pyyaml>=6.0",
     "psutil>=6.0",
     "pillow>=10.0",
+    "pillow-heif>=1.4.0",
 ]
 
 [project.optional-dependencies]
@@ -102,7 +103,7 @@ no_implicit_optional = true
 module = [
     "watchdog.*", "nicegui.*", "chromadb.*", "filetype.*", "tomli_w.*",
     "webview.*", "pystray.*", "sentence_transformers.*", "ollama.*",
-    "pymupdf.*", "pdfplumber.*", "docx.*", "pptx.*", "PIL.*",
+    "pymupdf.*", "pdfplumber.*", "docx.*", "pptx.*", "PIL.*", "pillow_heif.*",
 ]
 ignore_missing_imports = true
 
@@ -110,3 +111,7 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 asyncio_mode = "auto"
 filterwarnings = ["ignore::DeprecationWarning"]
+# NiceGUI's simulated-user harness, for driving real pages without a browser.
+# main_file is blanked because the tests register their own pages against a test Container.
+addopts = "-p nicegui.testing.user_plugin"
+main_file = ""

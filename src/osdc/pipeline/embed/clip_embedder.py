@@ -23,7 +23,9 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from osdc.domain.enums import FileType
 from osdc.domain.models import Vector
+from osdc.pipeline.extract.detector import detect_type
 
 if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
@@ -31,10 +33,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 DEFAULT_CLIP_MODEL = "clip-ViT-B-32"
-
-IMAGE_SUFFIXES: frozenset[str] = frozenset(
-    {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tiff", ".tif"}
-)
 
 
 class ClipEmbedder:
@@ -81,4 +79,4 @@ class ClipEmbedder:
 
 
 def is_image(path: Path) -> bool:
-    return path.suffix.lower() in IMAGE_SUFFIXES
+    return detect_type(path) is FileType.IMAGE

@@ -30,7 +30,7 @@ from cx_Freeze import Executable, setup
 sys.setrecursionlimit(10_000)
 
 ROOT = Path(__file__).parent
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 
 
 def _make_icon() -> Path:
@@ -85,6 +85,8 @@ build_exe_options = {
         "pptx",
         "yaml",
         "psutil",
+        "filetype",  # magic-byte detection; tiny but load-bearing for image indexing
+        "pillow_heif",  # native HEIF decoder — without it iPhone photos freeze out again
     ],
     "includes": ["osdc.main"],
     "include_files": [

@@ -43,6 +43,7 @@ from osdc.services.processing import ProcessingService
 from osdc.services.queue import AsyncioTaskQueue
 from osdc.services.rag import RagService
 from osdc.services.search import SearchService
+from osdc.storage import vectors as vector_collections
 from osdc.storage.db import Database
 from osdc.storage.repositories import (
     ChunkRepository,
@@ -262,6 +263,35 @@ class Container:
             self.watcher = None
         await self.queue.stop()
         self.db.dispose()
+
+    # ------------------------------------------------------------------
+    async def reset_data(self) -> None:
+        """Forget everything the app has read: file records, chunks, jobs, the search
+        index, the photo index, and the undo log. Settings survive, and the user's
+        actual files — originals and the organized library — are never touched.
+
+        Refuses while the pipeline is busy: dropping tables under a worker mid-job
+        would strand half-written rows in the new schema.
+        """
+        stats = await self.library.stats()
+        busy = self.queue.depth + stats.queued + stats.running
+        if busy:
+            raise RuntimeError(
+                f"Still processing {busy} item(s) — wait for the queue to empty, then retry."
+            )
+
+        logger.warning("Resetting all indexed data at the user's request")
+        await asyncio.to_thread(self._reset_data_sync)
+        # The Subject Knowledge Base must come back immediately, or the next document
+        # would be classified against an empty collection and land in Review for no reason.
+        await self.knowledge.seed(model_name=self.settings.embedding_model)
+        logger.info("Reset complete; knowledge base re-seeded")
+
+    def _reset_data_sync(self) -> None:
+        self.db.drop_all()
+        self.db.create_all()
+        for name in vector_collections.COLLECTIONS:
+            self.vector_store.clear(name)
 
     async def _on_file(self, path: Path) -> None:
         await self.ingestion.handle_path(path)

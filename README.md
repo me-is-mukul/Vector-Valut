@@ -50,7 +50,7 @@ library copy would then destroy the only copy.
 **From the installer** (Windows):
 
 ```
-dist/VectorVault-0.1.0-win64.msi
+dist/VectorVault-0.1.2-win64.msi
 ```
 
 219 MB. It installs the app and starts it at login. On first run it detects your hardware,

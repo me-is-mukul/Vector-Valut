@@ -14,6 +14,7 @@ import pytest
 from osdc.domain.enums import FileType
 from osdc.domain.models import ExtractedText, PageSpan
 from osdc.pipeline.chunk.chunker import chunk_extracted
+from osdc.pipeline.embed.clip_embedder import is_image
 from osdc.pipeline.extract.cleaner import clean_extracted, clean_text, find_repeated_lines
 from osdc.pipeline.extract.detector import detect_type
 from osdc.pipeline.extract.office import DocxExtractor, PptxExtractor
@@ -150,6 +151,13 @@ def test_type_is_detected_from_magic_bytes_not_the_extension(tmp_path: Path) -> 
     lying.write_bytes(b"\xff\xd8\xff\xe0\x00\x10JFIF\x00" + b"\x00" * 64)
 
     assert detect_type(lying) is FileType.IMAGE
+
+
+def test_is_image_uses_the_same_detector(tmp_path: Path) -> None:
+    lying = tmp_path / "Scan_002.pdf"
+    lying.write_bytes(b"\xff\xd8\xff\xe0\x00\x10JFIF\x00" + b"\x00" * 64)
+
+    assert is_image(lying) is True
 
 
 def test_text_types_fall_back_to_the_suffix(tmp_path: Path) -> None:

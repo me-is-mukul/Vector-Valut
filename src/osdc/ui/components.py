@@ -4,33 +4,53 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import io
+import logging
 import mimetypes
 from collections.abc import Awaitable, Callable
+from functools import lru_cache
 from pathlib import Path
 
-from nicegui import ui
+from nicegui import background_tasks, run, ui
+from PIL import Image
 
 from osdc.desktop import window
 from osdc.domain.models import FileRecord, OrganizePlan
 from osdc.services.images import ImageHit
 from osdc.services.rag import Answer
 
+logger = logging.getLogger(__name__)
+
 Handler = Callable[[], Awaitable[None]]
 
-MAX_THUMB_BYTES = 4_000_000
+#: Raw pass-through ceiling for the thumbnail fast path; anything bigger (or in a format
+#: browsers can't show, like HEIC) gets decoded and downscaled instead of refused.
+MAX_THUMB_BYTES = 300_000
+THUMB_EDGE = 480
+
+#: Mime types Chromium will actually render from a data URI. HEIC and TIFF are absent on
+#: purpose — those must be transcoded no matter how small they are.
+_BROWSER_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp"}
 
 
 def user_message(text: str) -> None:
     with ui.row().classes("w-full justify-end"):
-        ui.label(text).classes("msg-user text-sm")
+        ui.label(text).classes("msg-user text-sm whitespace-pre-wrap")
 
 
-def thinking(label: str) -> ui.row:
-    row = ui.row().classes("items-center gap-3 msg-bot")
-    with row:
-        ui.spinner(size="sm", color="primary")
-        ui.label(label).classes("dim text-sm")
-    return row
+class Thinking(ui.row):
+    """Spinner plus a mutable label, so long jobs can narrate their progress."""
+
+    def __init__(self, text: str) -> None:
+        super().__init__()
+        self.classes("items-center gap-3 msg-bot")
+        with self:
+            ui.spinner(size="sm", color="primary")
+            self.label = ui.label(text).classes("dim text-sm")
+
+
+def thinking(label: str) -> Thinking:
+    return Thinking(label)
 
 
 def notice(title: str, detail: str) -> None:
@@ -76,24 +96,60 @@ def image_results(hits: list[ImageHit], query: str) -> None:
             return
 
         ui.label(f"{len(hits)} photo{'s' if len(hits) != 1 else ''}").classes("text-sm")
+        if query.strip():
+            ui.label(f'for "{query.strip()}"').classes("dim text-xs")
         with ui.grid(columns=4).classes("w-full gap-2"):
             for hit in hits:
                 with ui.column().classes("tile gap-0").on("click", lambda p=hit.path: _reveal(p)):
-                    src = _thumb(hit.path)
-                    if src:
-                        ui.image(src).classes("cursor-pointer")
-                    else:
-                        ui.icon("broken_image").classes("dim text-3xl p-8")
+                    holder = ui.element("div").classes("thumb w-full")
                     ui.label(f"{hit.score:.2f}").classes("score mono")
                     ui.label(hit.path.name).classes("dim text-xs px-2 py-1 truncate w-full")
+                    _fill_thumb_async(holder, hit.path)
 
 
-def plan_preview(plan: OrganizePlan, on_apply: Handler, on_cancel: Handler) -> None:
+def _fill_thumb_async(holder: ui.element, path: Path) -> None:
+    """Decode off the event loop, paint when ready.
+
+    A grid of 24-megapixel photos takes seconds to decode; doing that inline froze the
+    whole UI, and skipping big files (the old behaviour) rendered them as broken icons.
+    """
+
+    async def load() -> None:
+        try:
+            src = await run.io_bound(_thumb, path)
+        except Exception:
+            logger.exception("Thumbnail failed for %s", path.name)
+            src = None
+        try:
+            if holder.is_deleted or holder.client.is_deleted:
+                return  # the user already navigated away
+            with holder:
+                if src:
+                    ui.image(src).classes("cursor-pointer")
+                else:
+                    ui.icon("broken_image").classes("dim text-3xl p-8")
+        except Exception:
+            # The page can be torn down between the check and the paint; a thumbnail
+            # arriving after its page is gone is routine, not an error.
+            logger.debug("Discarding a thumbnail for a closed page: %s", path.name)
+
+    background_tasks.create(load(), name=f"thumb:{path.name}")
+
+
+def plan_preview(
+    plan: OrganizePlan,
+    on_apply: Handler,
+    on_cancel: Handler,
+    pending: bool = True,
+) -> None:
     """The safety rail made visible.
 
     The model chose every destination here, but it produced *data*, not commands — so this
     screen can show exactly what will happen before a single byte moves. Nothing is touched
     until Apply, and Apply goes through the logged, reversible organizer.
+
+    ``pending=False`` re-renders a plan that has already been decided (the transcript is
+    replayed after navigation) — same preview, no live buttons.
     """
     movable = plan.movable
     review = [i for i in plan.items if i.skipped]
@@ -108,6 +164,9 @@ def plan_preview(plan: OrganizePlan, on_apply: Handler, on_cancel: Handler) -> N
         ).classes("text-sm")
 
         with ui.card().classes("w-full p-4 gap-4"):
+            if review:
+                ui.label("Needs your input").classes("dim text-xs uppercase tracking-wider")
+
             by_folder: dict[str, list] = {}
             for item in movable:
                 by_folder.setdefault(item.destination, []).append(item)
@@ -139,9 +198,29 @@ def plan_preview(plan: OrganizePlan, on_apply: Handler, on_cancel: Handler) -> N
                     f"{len(plan.unreadable)} file(s) I couldn't read (scans need OCR)."
                 ).classes("dim text-xs")
 
+        if not pending:
+            return
+
         with ui.row().classes("gap-2"):
-            ui.button("Apply", on_click=on_apply).props("unelevated dense")
-            ui.button("Cancel", on_click=on_cancel).props("flat dense").classes("dim")
+            apply_btn = ui.button("Apply").props("unelevated dense")
+            cancel_btn = ui.button("Cancel").props("flat dense").classes("dim")
+
+        # One decision per plan: both buttons die the moment either is pressed, so a
+        # double-click cannot file the same folder twice.
+        def _lock() -> None:
+            apply_btn.disable()
+            cancel_btn.disable()
+
+        async def _apply() -> None:
+            _lock()
+            await on_apply()
+
+        async def _cancel() -> None:
+            _lock()
+            await on_cancel()
+
+        apply_btn.on_click(_apply)
+        cancel_btn.on_click(_cancel)
 
         ui.label("Nothing has moved yet. Every move is logged and can be undone.").classes(
             "dim text-xs"
@@ -185,13 +264,19 @@ def recent_files(files: list[FileRecord], review_count: int = 0) -> None:
             ).classes("dim text-xs")
 
 
-def plan_applied(moved: int, errors: list[str], on_undo: Handler) -> None:
+def plan_applied(moved: int, errors: list[str], on_undo: Handler, undoable: bool = True) -> None:
     with ui.column().classes("msg-bot w-full gap-2"):
         ui.label(f"Filed {moved} file{'s' if moved != 1 else ''}.").classes("text-sm")
         for error in errors[:5]:
             ui.label(error).classes("dim text-xs")
-        if moved:
-            ui.button("Undo", on_click=on_undo).props("flat dense size=sm").classes("dim")
+        if moved and undoable:
+            undo_btn = ui.button("Undo").props("flat dense size=sm").classes("dim")
+
+            async def _undo() -> None:
+                undo_btn.disable()  # undo is idempotent-hostile; one shot only
+                await on_undo()
+
+            undo_btn.on_click(_undo)
 
 
 async def choose_folder(title: str) -> str | None:
@@ -207,11 +292,16 @@ async def choose_folder(title: str) -> str | None:
             .props("dense outlined")
             .classes("w-full")
         )
+        field.on("keydown.enter", lambda: dialog.submit(field.value))
         with ui.row().classes("justify-end gap-2 w-full"):
             ui.button("Cancel", on_click=lambda: dialog.submit(None)).props("flat dense")
             ui.button("OK", on_click=lambda: dialog.submit(field.value)).props("unelevated dense")
     picked = await dialog
-    return str(picked).strip() or None if picked else None
+    if picked is None:
+        return None
+    # Explorer's "Copy as path" wraps the path in quotes; swallowing them here beats
+    # telling the user their real folder doesn't exist.
+    return str(picked).strip().strip("\"'").strip() or None
 
 
 def _native_folder_dialog(title: str) -> str | None:
@@ -222,20 +312,44 @@ def _native_folder_dialog(title: str) -> str | None:
 
 
 def _thumb(path: Path) -> str | None:
-    """Inline the image as a data URI.
+    """A data-URI thumbnail.
 
-    NiceGUI can only serve files it has been given a route for, and registering a route per
-    photo would leak a growing set of handlers. Inlining keeps it stateless — and keeps the
-    user's photos from being exposed on the local HTTP server at all.
+    Inlined on purpose: NiceGUI can only serve files it has been given a route for, and
+    registering a route per photo would leak a growing set of handlers — and would expose
+    the user's photo tree on the local HTTP server. Small browser-friendly files pass
+    through untouched; everything else (big JPEGs, HEIC, TIFF) is downscaled to a real
+    thumbnail instead of being refused.
     """
     try:
-        if path.stat().st_size > MAX_THUMB_BYTES:
-            return None
-        raw = path.read_bytes()
+        stat = path.stat()
     except OSError:
         return None
-    mime = mimetypes.guess_type(path.name)[0] or "image/jpeg"
-    return f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
+    return _thumb_cached(str(path), stat.st_mtime_ns, stat.st_size)
+
+
+@lru_cache(maxsize=256)
+def _thumb_cached(path_str: str, mtime_ns: int, size: int) -> str | None:
+    path = Path(path_str)
+    mime = mimetypes.guess_type(path.name)[0]
+
+    if size <= MAX_THUMB_BYTES and mime in _BROWSER_MIMES:
+        try:
+            raw = path.read_bytes()
+        except OSError:
+            return None
+        return f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
+
+    try:
+        with Image.open(path) as handle:
+            handle.draft("RGB", (THUMB_EDGE, THUMB_EDGE))  # free 8x speedup on JPEGs
+            image = handle.convert("RGB")
+        image.thumbnail((THUMB_EDGE, THUMB_EDGE))
+        buffer = io.BytesIO()
+        image.save(buffer, format="JPEG", quality=72)
+    except Exception:
+        logger.warning("Could not thumbnail %s", path.name)
+        return None
+    return f"data:image/jpeg;base64,{base64.b64encode(buffer.getvalue()).decode('ascii')}"
 
 
 def _reveal(path: Path) -> None:

@@ -14,6 +14,7 @@ That is the walking-skeleton bet applied to storage.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import math
 from collections.abc import Sequence
@@ -120,6 +121,10 @@ class InMemoryVectorStore:
             bucket.pop(item_id, None)
         self._flush()
 
+    def clear(self, collection: str) -> None:
+        self._data[collection] = {}
+        self._flush()
+
     def count(self, collection: str) -> int:
         return len(self._data.get(collection, {}))
 
@@ -142,9 +147,12 @@ class ChromaVectorStore:
         vectors: Sequence[Vector],
         metadata: Sequence[dict[str, Any]],
     ) -> None:
+        # Chroma's hints want list[Sequence[float]]; list invariance makes the
+        # comprehension need the annotation to satisfy them.
+        embeddings: list[Sequence[float] | Sequence[int]] = [list(v) for v in vectors]
         self._client.get_or_create_collection(collection).upsert(
             ids=list(ids),
-            embeddings=[list(v) for v in vectors],
+            embeddings=embeddings,
             metadatas=[dict(m) for m in metadata],
         )
 
@@ -155,8 +163,9 @@ class ChromaVectorStore:
         k: int = 10,
         where: dict[str, Any] | None = None,
     ) -> list[Hit]:
+        query_embeddings: list[Sequence[float] | Sequence[int]] = [list(vector)]
         result = self._client.get_or_create_collection(collection).query(
-            query_embeddings=[list(vector)], n_results=k, where=where or None
+            query_embeddings=query_embeddings, n_results=k, where=where or None
         )
         ids = (result.get("ids") or [[]])[0]
         distances = (result.get("distances") or [[]])[0]
@@ -169,6 +178,13 @@ class ChromaVectorStore:
 
     def delete(self, collection: str, ids: Sequence[str]) -> None:
         self._client.get_or_create_collection(collection).delete(ids=list(ids))
+
+    def clear(self, collection: str) -> None:
+        # Dropping the collection wholesale beats paging through every id. A missing
+        # collection is not an error — clearing nothing succeeds.
+        with contextlib.suppress(Exception):
+            self._client.delete_collection(collection)
+        self._client.get_or_create_collection(collection, metadata={"hnsw:space": "cosine"})
 
     def count(self, collection: str) -> int:
         return int(self._client.get_or_create_collection(collection).count())

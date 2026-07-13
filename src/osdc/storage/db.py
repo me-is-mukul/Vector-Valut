@@ -36,6 +36,10 @@ class Database:
     def create_all(self) -> None:
         Base.metadata.create_all(self.engine)
 
+    def drop_all(self) -> None:
+        """Every table, gone. Only the reset flow calls this."""
+        Base.metadata.drop_all(self.engine)
+
     @contextmanager
     def session(self) -> Iterator[Session]:
         session = self._session_factory()

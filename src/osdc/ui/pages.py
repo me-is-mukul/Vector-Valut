@@ -10,10 +10,12 @@ from nicegui import ui
 
 from osdc.config.settings import save_settings
 from osdc.container import Container
+from osdc.services.images import IndexProgress
 from osdc.ui import components
 from osdc.ui.chat import ChatPane
 from osdc.ui.setup import SetupWizard
 from osdc.ui.shell import shell
+from osdc.ui.state import STATE
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ def register_pages(container: Container) -> None:
         if not container.settings.onboarded:
             await SetupWizard(container).build()
             return
-        with shell(active="/"):
+        with shell(active="/", container=container):
             ChatPane(container).build()
 
     @ui.page("/setup")
@@ -36,16 +38,27 @@ def register_pages(container: Container) -> None:
     # --- library ------------------------------------------------------
     @ui.page("/library")
     async def library() -> None:
-        with shell(active="/library"):
+        with shell(active="/library", container=container):
             with ui.column().classes("w-full h-full p-8 gap-6 overflow-y-auto"):
                 ui.label("Library").classes("text-2xl font-semibold")
+                ui.label(
+                    "Everything already filed, plus anything still waiting on a decision."
+                ).classes("dim text-sm -mt-4 max-w-2xl")
 
                 stats_row = ui.row().classes("gap-3")
                 table = ui.column().classes("w-full")
 
                 async def refresh() -> None:
-                    stats = await container.library.stats()
-                    files = await container.library.list_files(300)
+                    try:
+                        stats = await container.library.stats()
+                        files = await container.library.list_files(300)
+                    except Exception as exc:
+                        stats_row.clear()
+                        table.clear()
+                        with table:
+                            ui.label("Library unavailable right now.").classes("text-sm")
+                            ui.label(str(exc)).classes("dim text-xs")
+                        return
 
                     stats_row.clear()
                     with stats_row:
@@ -104,7 +117,8 @@ def register_pages(container: Container) -> None:
                                 }
                                 for f in files
                             ],
-                            row_key="filename",
+                            # The full path — two "syllabus.pdf"s must not share a row key.
+                            row_key="where",
                         ).classes("w-full").props("dense flat")
 
                 await refresh()
@@ -113,7 +127,7 @@ def register_pages(container: Container) -> None:
     # --- images -------------------------------------------------------
     @ui.page("/images")
     async def images() -> None:
-        with shell(active="/images"):
+        with shell(active="/images", container=container):
             with ui.column().classes("w-full h-full p-8 gap-6 overflow-y-auto"):
                 ui.label("Images").classes("text-2xl font-semibold")
                 ui.label(
@@ -125,29 +139,81 @@ def register_pages(container: Container) -> None:
                 status = ui.label().classes("dim text-xs")
                 status.text = f"{container.images.count()} photo(s) indexed"
 
-                results = ui.column().classes("w-full")
-
                 async def do_index() -> None:
                     folder = await components.choose_folder("Choose a folder of photos")
                     if not folder:
                         return
+                    path = Path(folder)
+
+                    latest: dict[str, IndexProgress] = {}
+
+                    def on_progress(p: IndexProgress) -> None:
+                        latest["p"] = p
+
+                    def paint() -> None:
+                        p = latest.get("p")
+                        if p is not None:
+                            status.text = f"Looking at every photo… {p.done}/{p.total}"
+
                     status.text = "Looking at every photo…"
-                    count = await container.images.index_folder(Path(folder))
-                    status.text = f"{container.images.count()} photo(s) indexed (+{count})"
+                    timer = ui.timer(0.3, paint)
+                    try:
+                        result = await container.images.index_folder(path, on_progress)
+                    except Exception as exc:
+                        status.text = f"Couldn't index that folder: {exc}"
+                        return
+                    finally:
+                        timer.cancel()
+
+                    total = container.images.count()
+                    if result.found == 0:
+                        status.text = (
+                            f"No images found in {path} — I looked for JPG, PNG, HEIC, "
+                            "WebP, GIF, BMP and TIFF, including subfolders."
+                        )
+                    elif result.indexed == 0:
+                        status.text = (
+                            f"Found {result.found} image(s) but couldn't read any of them "
+                            f"(e.g. {result.failed[0]}). They may be corrupt."
+                        )
+                    else:
+                        skipped = (
+                            f", {len(result.failed)} unreadable skipped" if result.failed else ""
+                        )
+                        status.text = f"{total} photo(s) indexed (+{result.indexed}{skipped})"
+
+                results = ui.column().classes("w-full")
 
                 async def do_search(query: str) -> None:
+                    query = query.strip()
+                    if not query:
+                        ui.notify("Describe what you want to find first", type="warning")
+                        return
                     results.clear()
                     with results:
                         spinner = ui.spinner(color="primary")
-                    hits = await container.images.search(query)
+                    try:
+                        hits = await container.images.search(query)
+                    except Exception as exc:
+                        spinner.delete()
+                        results.clear()
+                        with results:
+                            components.notice("Image search failed.", str(exc))
+                        return
                     spinner.delete()
+                    STATE.images.hits = hits
+                    STATE.images.searched_query = query
                     results.clear()
                     with results:
                         components.image_results(hits, query)
 
                 with ui.row().classes("w-full gap-2 items-center"):
                     box = (
-                        ui.input(placeholder="Describe a photo…")
+                        ui.input(
+                            placeholder="Describe a photo…",
+                            value=STATE.images.query,
+                            on_change=lambda e: setattr(STATE.images, "query", e.value or ""),
+                        )
                         .props("outlined dense")
                         .classes("flex-grow")
                     )
@@ -159,11 +225,16 @@ def register_pages(container: Container) -> None:
                         "dim"
                     )
 
+                # Coming back from another page: the last results are still here.
+                if STATE.images.hits is not None:
+                    with results:
+                        components.image_results(STATE.images.hits, STATE.images.searched_query)
+
     # --- settings -----------------------------------------------------
     @ui.page("/settings")
     async def settings_page() -> None:
         s = container.settings
-        with shell(active="/settings"):
+        with shell(active="/settings", container=container):
             with ui.column().classes("w-full h-full p-8 gap-6 overflow-y-auto max-w-3xl"):
                 ui.label("Settings").classes("text-2xl font-semibold")
 
@@ -196,11 +267,16 @@ def register_pages(container: Container) -> None:
 
                     async def add() -> None:
                         picked = await components.choose_folder("Watch which folder?")
-                        if picked:
-                            s.watched_folders = [*s.watched_folders, Path(picked)]
-                            save_settings(s)
-                            draw_folders()
-                            ui.notify("Restart to start watching it")
+                        if not picked:
+                            return
+                        path = Path(picked)
+                        if path in s.watched_folders:
+                            ui.notify("Already watching that folder")
+                            return
+                        s.watched_folders = [*s.watched_folders, path]
+                        save_settings(s)
+                        draw_folders()
+                        ui.notify("Restart to start watching it")
 
                     draw_folders()
                     ui.button("Add a folder", on_click=add).props("flat dense").classes("dim")
@@ -213,19 +289,28 @@ def register_pages(container: Container) -> None:
 
                 with ui.card().classes("w-full p-5 gap-3"):
                     ui.label("Models").classes("text-sm font-medium")
-                    available = await asyncio.to_thread(container.llm.available)
                     with ui.row().classes("items-center gap-2"):
-                        ui.icon("circle").classes(
-                            "text-xs " + ("text-green-500" if available else "text-red-500")
-                        )
-                        ui.label(
-                            f"{s.llm_model} · {'running' if available else 'not running'}"
-                        ).classes("text-xs")
+                        llm_dot = ui.icon("circle").classes("text-xs text-yellow-600")
+                        llm_line = ui.label(f"{s.llm_model} · checking…").classes("text-xs")
                     _kv("Embeddings", s.embedding_model)
                     _kv("Image search", s.clip_model)
                     ui.button("Re-run setup", on_click=lambda: ui.navigate.to("/setup")).props(
                         "flat dense"
                     ).classes("dim")
+
+                    async def check_llm() -> None:
+                        # Off the page path on purpose: a down Ollama must not stall the
+                        # whole Settings page while the connection times out.
+                        available = await asyncio.to_thread(container.llm.available)
+                        llm_dot.classes(
+                            replace="text-xs "
+                            + ("text-green-500" if available else "text-red-500")
+                        )
+                        llm_line.text = (
+                            f"{s.llm_model} · {'running' if available else 'not running'}"
+                        )
+
+                    ui.timer(0.1, check_llm, once=True)
 
                 with ui.card().classes("w-full p-5 gap-3"):
                     ui.label("Background").classes("text-sm font-medium")
@@ -237,6 +322,58 @@ def register_pages(container: Container) -> None:
                     ui.label(
                         "Off means closing the window quits, and downloads stop being filed."
                     ).classes("dim text-xs")
+
+                with ui.card().classes("w-full p-5 gap-3 danger-zone"):
+                    ui.label("Danger zone").classes("text-sm font-medium text-red-400")
+                    ui.label(
+                        "Reset the database: forget every file record, the document and "
+                        "photo search indexes, and the undo history. Your actual files — "
+                        "originals and the organized library — are not touched, and your "
+                        "settings are kept."
+                    ).classes("dim text-xs")
+
+                    reset_status = ui.label().classes("dim text-xs")
+                    reset_status.visible = False
+
+                    async def do_reset() -> None:
+                        with ui.dialog() as dialog, ui.card().classes("w-96 p-4 gap-3"):
+                            ui.label("Reset the database?").classes("text-sm font-medium")
+                            ui.label(
+                                "Everything the app has read will be forgotten and undo "
+                                "history will be lost. Files on disk stay exactly where "
+                                "they are. This cannot be undone."
+                            ).classes("dim text-xs")
+                            with ui.row().classes("justify-end gap-2 w-full"):
+                                ui.button(
+                                    "Cancel", on_click=lambda: dialog.submit(False)
+                                ).props("flat dense")
+                                ui.button(
+                                    "Reset everything", on_click=lambda: dialog.submit(True)
+                                ).props("unelevated dense color=negative")
+                        if not await dialog:
+                            return
+
+                        reset_btn.disable()
+                        reset_status.visible = True
+                        reset_status.text = "Resetting…"
+                        try:
+                            await container.reset_data()
+                        except Exception as exc:
+                            reset_status.text = str(exc)
+                            reset_btn.enable()
+                            return
+                        # The chat transcript and image results now point at records
+                        # that no longer exist; a fresh start means a fresh start.
+                        STATE.reset()
+                        reset_status.text = "Done. The app has forgotten everything it read."
+                        reset_btn.enable()
+                        ui.notify("Database reset — the library is empty", type="positive")
+
+                    reset_btn = (
+                        ui.button("Reset database", on_click=do_reset)
+                        .props("flat dense color=negative")
+                        .mark("reset-db")
+                    )
 
 
 def _persist(settings: object, field: str, value: object) -> None:

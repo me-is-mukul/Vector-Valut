@@ -127,9 +127,14 @@ async def apply_plan(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 @router.post("/images/index")
-async def index_images(payload: dict[str, str]) -> dict[str, int]:
-    count = await _c().images.index_folder(Path(payload["folder"]))
-    return {"indexed": count, "total": _c().images.count()}
+async def index_images(payload: dict[str, str]) -> dict[str, Any]:
+    result = await _c().images.index_folder(Path(payload["folder"]))
+    return {
+        "found": result.found,
+        "indexed": result.indexed,
+        "failed": result.failed,
+        "total": _c().images.count(),
+    }
 
 
 @router.get("/images/search")
