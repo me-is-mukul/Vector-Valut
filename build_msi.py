@@ -103,6 +103,13 @@ build_exe_options = {
         "matplotlib",
         "notebook",
         "IPython",
+        # Chroma does not survive freezing — its PersistentClient hangs inside a frozen
+        # app (0.1.2 rc1 shipped it by accident and hung on startup, DB created, no log
+        # line ever written). Excluding it makes build_vector_store fall back to the
+        # JSON store, which is exactly what 0.1.1 shipped and what users' existing
+        # vectors.json files expect.
+        "chromadb",
+        "onnxruntime",
     ],
     "zip_include_packages": [],
     "optimize": 1,

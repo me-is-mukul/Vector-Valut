@@ -501,8 +501,7 @@ class ChatPane:
     async def _scroll(self) -> None:
         await asyncio.sleep(0.05)
         ui.run_javascript(
-            "const t = document.querySelector('.chat-thread');"
-            "if (t) t.scrollTop = t.scrollHeight;"
+            "const t = document.querySelector('.chat-thread');if (t) t.scrollTop = t.scrollHeight;"
         )
 
     async def _scroll_when_connected(self) -> None:

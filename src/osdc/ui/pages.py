@@ -303,8 +303,7 @@ def register_pages(container: Container) -> None:
                         # whole Settings page while the connection times out.
                         available = await asyncio.to_thread(container.llm.available)
                         llm_dot.classes(
-                            replace="text-xs "
-                            + ("text-green-500" if available else "text-red-500")
+                            replace="text-xs " + ("text-green-500" if available else "text-red-500")
                         )
                         llm_line.text = (
                             f"{s.llm_model} · {'running' if available else 'not running'}"
@@ -344,9 +343,9 @@ def register_pages(container: Container) -> None:
                                 "they are. This cannot be undone."
                             ).classes("dim text-xs")
                             with ui.row().classes("justify-end gap-2 w-full"):
-                                ui.button(
-                                    "Cancel", on_click=lambda: dialog.submit(False)
-                                ).props("flat dense")
+                                ui.button("Cancel", on_click=lambda: dialog.submit(False)).props(
+                                    "flat dense"
+                                )
                                 ui.button(
                                     "Reset everything", on_click=lambda: dialog.submit(True)
                                 ).props("unelevated dense color=negative")

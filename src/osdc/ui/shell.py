@@ -55,9 +55,11 @@ def shell(active: str, container: Container | None = None) -> Iterator[None]:
 def _status_banner(container: Container, show_chat_link: bool) -> None:
     with ui.row().classes("status-banner w-full items-center justify-between gap-3 px-6 py-3"):
         message = ui.label().classes("text-xs")
-        action = ui.button("Go to Chat", on_click=lambda: ui.navigate.to("/")).props(
-            "flat dense"
-        ).classes("dim")
+        action = (
+            ui.button("Go to Chat", on_click=lambda: ui.navigate.to("/"))
+            .props("flat dense")
+            .classes("dim")
+        )
         action.visible = False  # nothing to act on until the first refresh says so
 
         async def refresh() -> None:
