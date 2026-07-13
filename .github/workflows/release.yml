@@ -1,0 +1,86 @@
+name: Release
+
+# Push a tag like v0.1.2 and this builds the MSI on a clean Windows runner,
+# boots the frozen exe to prove it actually starts (0.1.2's first build hung on
+# a frozen chromadb — an installer that passes CI but won't boot is the exact
+# failure this job exists to catch), and publishes a GitHub release with the
+# installer and its SHA256 attached.
+#
+#   git tag v0.1.2
+#   git push origin v0.1.2
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # gh release create needs to write to the repo
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Tag must match the version being built
+        # Catches the classic release mistake before it becomes a public artifact
+        # named one thing that installs another.
+        run: |
+          $tag = "${{ github.ref_name }}".TrimStart("v")
+          $build = (Select-String -Path build_msi.py -Pattern 'VERSION = "(.+)"').Matches[0].Groups[1].Value
+          $proj = (Select-String -Path pyproject.toml -Pattern 'version = "(.+)"').Matches[0].Groups[1].Value
+          if ($tag -ne $build) { throw "Tag v$tag does not match build_msi.py VERSION $build" }
+          if ($tag -ne $proj) { throw "Tag v$tag does not match pyproject.toml version $proj" }
+
+      - name: Install (everything the frozen app ships)
+        run: uv sync --extra docs --extra ml --extra rag --extra desktop --extra build
+
+      - name: Build the MSI
+        run: uv run --no-sync python build_msi.py bdist_msi
+
+      - name: Boot the frozen exe and require a healthy response
+        # The whole point: a freeze that imports cleanly can still hang at runtime.
+        # Run the actual exe against a throwaway data dir and demand /api/health.
+        run: |
+          $env:OSDC_DATA_DIR = "$env:RUNNER_TEMP\vv-smoke"
+          New-Item -ItemType Directory -Force $env:OSDC_DATA_DIR | Out-Null
+          $env:OSDC_LIBRARY_ROOT = "$env:OSDC_DATA_DIR\library"
+          $env:OSDC_ONBOARDED = "true"
+          $env:OSDC_SCAN_ON_STARTUP = "false"
+          $env:OSDC_UI_NATIVE = "false"  # no native window on a headless runner
+          $env:OSDC_UI_PORT = "8944"
+          $exe = Get-ChildItem "build\exe.win-amd64-*\VectorVault.exe" | Select-Object -First 1
+          $proc = Start-Process -FilePath $exe.FullName -PassThru
+          $ok = $false
+          foreach ($i in 1..90) {
+            try {
+              $r = Invoke-WebRequest -Uri "http://127.0.0.1:8944/api/health" -UseBasicParsing -TimeoutSec 2
+              if ($r.StatusCode -eq 200) { $ok = $true; $r.Content; break }
+            } catch { Start-Sleep -Seconds 2 }
+          }
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          if (-not $ok) {
+            $log = "$env:OSDC_DATA_DIR\logs\osdc.log"
+            if (Test-Path $log) { Get-Content $log -Tail 50 }
+            throw "The frozen app never became healthy — do not ship this installer"
+          }
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $msi = Get-ChildItem "dist\VectorVault-*.msi" | Select-Object -First 1
+          $sha = (Get-FileHash $msi.FullName -Algorithm SHA256).Hash
+          Copy-Item RELEASE_NOTES.md body.md
+          Add-Content body.md ""
+          Add-Content body.md "**SHA256** (``$($msi.Name)``):"
+          Add-Content body.md "``$sha``"
+          gh release create "${{ github.ref_name }}" $msi.FullName `
+            --title "Vector Vault ${{ github.ref_name }}" `
+            --notes-file body.md
