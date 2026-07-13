@@ -21,9 +21,16 @@ fits, and fetches it.
 from __future__ import annotations
 
 import sys
+from importlib.util import find_spec
 from pathlib import Path
 
 from cx_Freeze import Executable, setup
+
+
+def _package_dir(name: str) -> Path:
+    spec = find_spec(name)
+    assert spec is not None and spec.submodule_search_locations
+    return Path(spec.submodule_search_locations[0])
 
 # Torch's import graph is deep enough to blow Python's default 1000-frame limit while
 # cx_Freeze walks it. This is the single most common reason a Torch app fails to freeze.
@@ -93,12 +100,20 @@ build_exe_options = {
         # The Subject Knowledge Base has to ship — without it the academic classifier has
         # nothing to classify against and every document lands in Review.
         (str(ROOT / "src" / "osdc" / "data"), "lib/osdc/data"),
+        # transformers builds its lazy-import table by scanning its own directory for
+        # .py source files; the frozen .pyc-only copy scans to nothing and every import
+        # dies with `KeyError: frozenset()`. Overlaying the real source tree fixes it.
+        (str(_package_dir("transformers")), "lib/transformers"),
+        # scipy's vendored array_api_compat imports submodules dynamically, which the
+        # module finder cannot trace (`No module named scipy._external...` at runtime).
+        (str(_package_dir("scipy")), "lib/scipy"),
     ],
     "excludes": [
         # Torch drags these in and they are pure weight in a shipped app.
+        # ("unittest" must NOT be excluded: torch.utils._config_module imports it
+        # at runtime since the 2.9 lock bump, and the frozen app dies without it.)
         "tkinter",
         "test",
-        "unittest",
         "pytest",
         "matplotlib",
         "notebook",
