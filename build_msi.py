@@ -32,6 +32,7 @@ def _package_dir(name: str) -> Path:
     assert spec is not None and spec.submodule_search_locations
     return Path(spec.submodule_search_locations[0])
 
+
 # Torch's import graph is deep enough to blow Python's default 1000-frame limit while
 # cx_Freeze walks it. This is the single most common reason a Torch app fails to freeze.
 sys.setrecursionlimit(10_000)
