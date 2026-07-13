@@ -1,0 +1,112 @@
+[project]
+name = "osdc"
+version = "0.1.0"
+description = "Local-first AI document & image management system"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { file = "LICENSE" }
+
+# ---------------------------------------------------------------------------
+# core — the Phase 0 walking skeleton runs on THIS ALONE (roadmap.md §2.3).
+# No Torch, no Paddle, no Chroma. Installs in seconds.
+# ---------------------------------------------------------------------------
+dependencies = [
+    "nicegui>=3.14",
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
+    "sqlalchemy>=2.0",
+    "alembic>=1.14",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "watchdog>=6.0",
+    "platformdirs>=4.3",
+    "filetype>=1.2",
+    "tomli-w>=1.0",
+    "pyyaml>=6.0",
+    "psutil>=6.0",
+    "pillow>=10.0",
+]
+
+[project.optional-dependencies]
+# Phase 0 falls back to an in-process vector store when this is absent.
+vector = ["chromadb>=1.5"]
+# Phase 1 — real document extractors.
+docs = ["pymupdf>=1.28", "pdfplumber>=0.11", "python-docx>=1.1", "python-pptx>=1.0"]
+# Phase 2 — OCR agent.
+ocr = ["paddleocr>=3.0", "paddlepaddle>=3.3", "pytesseract>=0.3.13"]
+# Phase 3 / 6 — embeddings.
+ml = ["sentence-transformers>=5.0", "open_clip_torch>=3.0", "torch>=2.5"]
+# Phase 5 — RAG.
+rag = ["llama-index>=0.14", "ollama>=0.4"]
+# Native desktop window + system tray. Required for the real desktop app.
+desktop = ["pywebview>=5.0", "pystray>=0.19"]
+# Windows MSI installer.
+build = ["cx_Freeze>=8.0", "pywin32>=306"]
+
+[project.scripts]
+osdc = "osdc.main:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "ruff>=0.9",
+    "mypy>=1.14",
+    "import-linter>=2.1",
+    "types-PyYAML>=6.0",
+    "types-psutil>=6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/osdc"]
+
+[tool.hatch.build.targets.wheel.force-include]
+# The Subject Knowledge Base seed must ship with the package, not just live in the repo.
+"src/osdc/data/curriculum.yaml" = "osdc/data/curriculum.yaml"
+
+# ---------------------------------------------------------------------------
+# Tooling
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src", "tests"]
+# Migrations are machine-generated from Alembic's own template; linting them just
+# creates churn on every autogenerate.
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "PTH", "RUF"]
+ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# Nested `with` IS the NiceGUI idiom — the context managers build the widget tree,
+# and flattening them destroys the visual nesting that makes the layout readable.
+"src/osdc/ui/*" = ["SIM117"]
+
+[tool.mypy]
+python_version = "3.13"
+packages = ["osdc"]
+mypy_path = "src"
+warn_unused_configs = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = [
+    "watchdog.*", "nicegui.*", "chromadb.*", "filetype.*", "tomli_w.*",
+    "webview.*", "pystray.*", "sentence_transformers.*", "ollama.*",
+    "pymupdf.*", "pdfplumber.*", "docx.*", "pptx.*", "PIL.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = ["ignore::DeprecationWarning"]

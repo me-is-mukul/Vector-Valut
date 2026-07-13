@@ -1,0 +1,53 @@
+; roadmap.md §2.7 — the layering rule, enforced mechanically so it cannot rot.
+;
+;   ui/  api/   →  may import services/
+;   services/   →  may import pipeline/, storage/
+;   pipeline/   →  may import domain/
+;   domain/     →  imports nothing of ours
+;
+; This is what makes "UI-agnostic core" (architecture.md §1) true rather than
+; aspirational, and what keeps the NiceGUI → Flet fallback (planning.md §6.1) a
+; real option instead of a rewrite.
+
+[importlinter]
+root_package = osdc
+include_external_packages = True
+
+[importlinter:contract:layers]
+name = Layered architecture
+type = layers
+layers =
+    osdc.ui : osdc.api
+    osdc.services
+    osdc.pipeline : osdc.storage
+    osdc.config
+    osdc.domain
+    osdc.setup : osdc.desktop
+exhaustive = false
+
+[importlinter:contract:domain-is-pure]
+name = Domain imports nothing of ours
+type = forbidden
+source_modules =
+    osdc.domain
+forbidden_modules =
+    osdc.config
+    osdc.storage
+    osdc.pipeline
+    osdc.services
+    osdc.api
+    osdc.ui
+
+[importlinter:contract:pipeline-has-no-io-deps]
+name = Pipeline does not reach into storage or frameworks
+type = forbidden
+source_modules =
+    osdc.pipeline
+forbidden_modules =
+    osdc.storage
+    osdc.services
+    osdc.api
+    osdc.ui
+    sqlalchemy
+    fastapi
+    nicegui

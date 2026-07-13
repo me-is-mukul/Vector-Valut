@@ -1,0 +1,353 @@
+# Subject Knowledge Base — the seed curriculum.
+#
+# This resolves the blocker in roadmap.md §7: the academic classifier needs to know what
+# subjects exist before it can route anything to them, and nothing in planning.md or
+# architecture.md said where that knowledge comes from.
+#
+# ---------------------------------------------------------------------------
+# THIS IS A SAMPLE. Replace it with YOUR actual curriculum.
+# ---------------------------------------------------------------------------
+# It is a generic Indian B.Tech CSE syllabus. The subject names, codes and topics are
+# plausible, not real — they are here so the classifier has something to match against on
+# day one. Editing this file is the intended way to make the app know your course.
+#
+# The `description` and `topics` fields are what actually get embedded into the
+# `subject_kb` vector collection, so they carry all the weight. Write them the way a
+# document about the subject would read: a bag of the real vocabulary, not a course
+# catalogue blurb. "Paging, segmentation, TLB, page faults, thrashing" beats "students
+# will learn about memory management."
+
+current_semester: 5
+
+semesters:
+  - number: 1
+    subjects:
+      - name: Engineering Mathematics I
+        code: MA101
+        credits: 4
+        description: >
+          Differential and integral calculus, limits, continuity, derivatives, definite
+          and indefinite integrals, sequences and series, convergence tests, partial
+          derivatives, maxima and minima, multiple integrals.
+        topics: [calculus, limits, derivatives, integration, series, convergence, partial derivatives]
+
+      - name: Engineering Physics
+        code: PH101
+        credits: 4
+        description: >
+          Waves and oscillations, interference, diffraction, polarization, lasers and
+          holography, quantum mechanics, wave-particle duality, Schrodinger equation,
+          semiconductor physics, superconductivity.
+        topics: [optics, interference, diffraction, laser, quantum mechanics, semiconductors, wave function]
+
+      - name: Programming Fundamentals
+        code: CS101
+        credits: 4
+        description: >
+          Introduction to programming in C, variables, data types, operators, control
+          flow, loops, functions, recursion, arrays, strings, pointers, structures, file
+          handling, compilation and debugging.
+        topics: [c programming, variables, loops, functions, recursion, pointers, arrays, structures]
+
+  - number: 2
+    subjects:
+      - name: Engineering Mathematics II
+        code: MA102
+        credits: 4
+        description: >
+          Linear algebra, matrices, determinants, rank, eigenvalues and eigenvectors,
+          vector spaces, linear transformations, differential equations, Laplace
+          transforms, Fourier series.
+        topics: [linear algebra, matrices, eigenvalues, vector spaces, differential equations, laplace transform, fourier series]
+
+      - name: Object Oriented Programming
+        code: CS102
+        credits: 4
+        description: >
+          Object oriented programming in C++ and Java, classes and objects, encapsulation,
+          inheritance, polymorphism, abstraction, virtual functions, operator overloading,
+          templates, generics, exception handling, collections.
+        topics: [oop, classes, objects, inheritance, polymorphism, encapsulation, abstraction, java, c++, exception handling]
+
+      - name: Digital Logic Design
+        code: EC102
+        credits: 3
+        description: >
+          Boolean algebra, logic gates, Karnaugh maps, minimization, combinational
+          circuits, multiplexers, decoders, adders, sequential circuits, flip-flops,
+          counters, registers, finite state machines.
+        topics: [boolean algebra, logic gates, karnaugh map, flip flop, counters, multiplexer, sequential circuits]
+
+  - number: 3
+    subjects:
+      - name: Data Structures
+        code: CS201
+        credits: 4
+        description: >
+          Arrays, linked lists, singly and doubly linked lists, stacks, queues, trees,
+          binary trees, binary search trees, AVL trees, heaps, priority queues, hashing,
+          hash tables, collision resolution, graphs, adjacency list and matrix, graph
+          traversal, breadth first search, depth first search, time and space complexity,
+          asymptotic notation, big O analysis.
+        topics: [linked list, stack, queue, binary tree, binary search tree, avl tree, heap, hash table, graph, bfs, dfs, traversal, complexity, big o]
+
+      - name: Computer Organization and Architecture
+        code: CS202
+        credits: 4
+        description: >
+          Von Neumann architecture, instruction set architecture, addressing modes, CPU
+          datapath and control unit, microprogramming, pipelining, pipeline hazards, cache
+          memory, cache mapping, memory hierarchy, virtual memory, I/O organization,
+          interrupts, DMA.
+        topics: [instruction set, addressing modes, pipelining, cache memory, memory hierarchy, control unit, interrupts, dma, cpu architecture]
+
+      - name: Discrete Mathematics
+        code: MA201
+        credits: 4
+        description: >
+          Propositional and predicate logic, set theory, relations, functions,
+          combinatorics, permutations and combinations, pigeonhole principle, mathematical
+          induction, recurrence relations, graph theory, trees, generating functions.
+        topics: [logic, set theory, relations, functions, combinatorics, induction, recurrence, graph theory, permutations]
+
+  - number: 4
+    subjects:
+      - name: Design and Analysis of Algorithms
+        code: CS203
+        credits: 4
+        description: >
+          Algorithm analysis, asymptotic notation, divide and conquer, merge sort,
+          quicksort, greedy algorithms, Huffman coding, minimum spanning tree, Kruskal and
+          Prim, dynamic programming, knapsack, longest common subsequence, matrix chain
+          multiplication, shortest paths, Dijkstra, Bellman-Ford, Floyd-Warshall,
+          backtracking, branch and bound, NP-completeness, NP-hard problems, reductions.
+        topics: [divide and conquer, greedy, dynamic programming, knapsack, dijkstra, kruskal, prim, backtracking, np complete, np hard, quicksort, merge sort]
+
+      - name: Database Management Systems
+        code: CS204
+        credits: 4
+        description: >
+          Relational model, relational algebra, SQL queries, joins, aggregate functions,
+          entity relationship model, ER diagrams, functional dependencies, normalization,
+          first second third normal form, BCNF, transactions, ACID properties,
+          concurrency control, locking, two phase locking, deadlock, recovery, indexing,
+          B trees, B+ trees, query optimization.
+        topics: [sql, relational algebra, er diagram, normalization, bcnf, transaction, acid, concurrency control, locking, indexing, b tree, query optimization, primary key, foreign key]
+
+      - name: Theory of Computation
+        code: CS205
+        credits: 4
+        description: >
+          Finite automata, deterministic and nondeterministic finite automata, regular
+          expressions, regular languages, pumping lemma, context free grammars, pushdown
+          automata, parse trees, ambiguity, Turing machines, decidability, halting
+          problem, Chomsky hierarchy.
+        topics: [finite automata, dfa, nfa, regular expression, pumping lemma, context free grammar, pushdown automata, turing machine, decidability, halting problem]
+
+  - number: 5
+    subjects:
+      - name: Operating Systems
+        code: CS301
+        credits: 4
+        description: >
+          Processes and threads, process states, context switching, CPU scheduling, first
+          come first served, shortest job first, round robin, priority scheduling, process
+          synchronization, critical section, mutex, semaphores, monitors, producer
+          consumer problem, readers writers problem, dining philosophers, deadlock,
+          deadlock prevention, avoidance, detection, banker's algorithm, memory
+          management, contiguous allocation, paging, page tables, translation lookaside
+          buffer, TLB, segmentation, virtual memory, demand paging, page faults, page
+          replacement algorithms, FIFO, LRU, optimal, thrashing, working set, file
+          systems, inodes, disk scheduling, I/O management.
+        topics: [process, thread, scheduling, context switch, semaphore, mutex, deadlock, banker's algorithm, paging, page table, tlb, segmentation, virtual memory, page fault, page replacement, lru, thrashing, file system, inode, disk scheduling]
+
+      - name: Computer Networks
+        code: CS302
+        credits: 4
+        description: >
+          OSI model, TCP/IP protocol stack, physical layer, data link layer, framing,
+          error detection, CRC, MAC protocols, CSMA/CD, Ethernet, switching, network
+          layer, IP addressing, IPv4, IPv6, subnetting, subnet mask, CIDR, routing
+          algorithms, distance vector, link state, OSPF, BGP, transport layer, TCP, UDP,
+          three way handshake, flow control, sliding window, congestion control, slow
+          start, application layer, DNS, HTTP, SMTP, FTP, network security, firewalls.
+        topics: [osi model, tcp, udp, ip address, subnetting, subnet mask, routing, ospf, bgp, ethernet, three way handshake, congestion control, flow control, sliding window, dns, http, packet, datagram]
+
+      - name: Software Engineering
+        code: CS303
+        credits: 3
+        description: >
+          Software development life cycle, waterfall model, agile methodology, scrum,
+          sprints, requirements engineering, functional and non functional requirements,
+          SRS document, software design, UML diagrams, use case diagram, class diagram,
+          sequence diagram, design patterns, testing, unit testing, integration testing,
+          black box and white box testing, test cases, software maintenance, version
+          control, project management, risk analysis.
+        topics: [sdlc, waterfall, agile, scrum, sprint, requirements, srs, uml, use case, class diagram, design patterns, unit testing, integration testing, black box testing, version control]
+
+      - name: Machine Learning
+        code: CS304
+        credits: 4
+        description: >
+          Supervised learning, regression, linear regression, logistic regression,
+          classification, decision trees, random forest, support vector machines, SVM,
+          k nearest neighbours, naive Bayes, unsupervised learning, clustering, k means,
+          hierarchical clustering, dimensionality reduction, principal component analysis,
+          PCA, neural networks, perceptron, backpropagation, gradient descent, overfitting,
+          underfitting, bias variance tradeoff, regularization, cross validation, confusion
+          matrix, precision, recall, F1 score.
+        topics: [supervised learning, regression, classification, decision tree, random forest, svm, knn, naive bayes, clustering, k means, pca, neural network, backpropagation, gradient descent, overfitting, cross validation, precision, recall]
+
+  - number: 6
+    subjects:
+      - name: Compiler Design
+        code: CS305
+        credits: 4
+        description: >
+          Phases of a compiler, lexical analysis, tokens, lexemes, regular expressions,
+          finite automata, syntax analysis, parsing, top down parsing, recursive descent,
+          LL parser, bottom up parsing, LR parser, SLR, LALR, shift reduce, semantic
+          analysis, syntax directed translation, attribute grammars, symbol table,
+          intermediate code generation, three address code, code optimization, basic
+          blocks, data flow analysis, code generation, register allocation.
+        topics: [lexical analysis, parser, ll parser, lr parser, lalr, shift reduce, syntax directed translation, symbol table, intermediate code, three address code, code optimization, register allocation]
+
+      - name: Artificial Intelligence
+        code: CS306
+        credits: 4
+        description: >
+          Intelligent agents, problem solving by search, uninformed search, breadth first,
+          depth first, uniform cost, informed search, heuristics, greedy best first, A star
+          search, admissible heuristics, adversarial search, minimax, alpha beta pruning,
+          constraint satisfaction problems, knowledge representation, propositional logic,
+          first order logic, inference, resolution, planning, reasoning under uncertainty,
+          Bayesian networks, expert systems.
+        topics: [search, heuristic, a star, minimax, alpha beta pruning, constraint satisfaction, knowledge representation, first order logic, resolution, inference, bayesian network, expert system, intelligent agent]
+
+      - name: Web Technologies
+        code: CS307
+        credits: 3
+        description: >
+          HTML, CSS, JavaScript, DOM manipulation, responsive design, client server
+          architecture, HTTP requests, REST APIs, JSON, AJAX, frontend frameworks, React,
+          backend development, Node.js, Express, server side rendering, sessions, cookies,
+          authentication, databases in web applications, deployment.
+        topics: [html, css, javascript, dom, rest api, json, ajax, react, node js, http request, session, cookie, authentication, frontend, backend]
+
+  - number: 7
+    subjects:
+      - name: Cloud Computing
+        code: CS401
+        credits: 3
+        description: >
+          Cloud service models, infrastructure as a service, platform as a service,
+          software as a service, deployment models, public private hybrid cloud,
+          virtualization, hypervisors, virtual machines, containers, Docker, Kubernetes,
+          orchestration, load balancing, auto scaling, distributed storage, AWS, Azure,
+          serverless computing, microservices.
+        topics: [iaas, paas, saas, virtualization, hypervisor, container, docker, kubernetes, load balancing, auto scaling, aws, azure, serverless, microservices]
+
+      - name: Cryptography and Network Security
+        code: CS402
+        credits: 4
+        description: >
+          Symmetric key cryptography, block ciphers, DES, AES, stream ciphers, asymmetric
+          cryptography, public key, RSA, Diffie-Hellman key exchange, elliptic curve
+          cryptography, hash functions, SHA, MD5, message authentication code, digital
+          signatures, certificates, public key infrastructure, SSL, TLS, attacks, man in
+          the middle, replay attack, intrusion detection.
+        topics: [encryption, symmetric key, aes, des, rsa, diffie hellman, public key, hash function, sha, digital signature, certificate, ssl, tls, cryptanalysis]
+
+      - name: Big Data Analytics
+        code: CS403
+        credits: 3
+        description: >
+          Characteristics of big data, volume velocity variety, distributed file systems,
+          HDFS, MapReduce, Hadoop ecosystem, Apache Spark, RDD, data frames, stream
+          processing, Kafka, NoSQL databases, MongoDB, Cassandra, data warehousing, ETL,
+          data lakes, analytics pipelines.
+        topics: [big data, hadoop, hdfs, mapreduce, spark, rdd, kafka, nosql, mongodb, cassandra, data warehouse, etl, stream processing]
+
+  - number: 8
+    subjects:
+      - name: Major Project
+        code: CS499
+        credits: 8
+        description: >
+          Capstone project work, project proposal, literature survey, system design,
+          implementation, testing, project report, thesis, dissertation, presentation,
+          demonstration, viva voce.
+        topics: [project report, literature survey, thesis, dissertation, capstone, project proposal, viva]
+
+      - name: Professional Ethics
+        code: HS401
+        credits: 2
+        description: >
+          Engineering ethics, professional responsibility, codes of conduct, intellectual
+          property, patents, copyright, plagiarism, privacy, data protection, workplace
+          ethics, whistleblowing, sustainability, corporate social responsibility.
+        topics: [ethics, professional conduct, intellectual property, patent, copyright, plagiarism, privacy, data protection]
+
+# General (non-academic) categories. These become prototype embeddings in the
+# `category_prototypes` collection and are what a document falls back to when nothing in
+# the curriculum matches. Same rule as above: write the description in the vocabulary the
+# document itself would use.
+general_categories:
+  - name: Finance
+    description: >
+      Invoice, bill, receipt, payment, transaction, amount due, total payable, tax, GST,
+      VAT, bank statement, account number, IFSC, credit, debit, balance, salary slip,
+      payslip, income, expense, loan, EMI, insurance premium, mutual fund, investment.
+    topics: [invoice, receipt, bill, payment, tax, gst, bank statement, salary, payslip, loan, emi, insurance, investment]
+
+  - name: Identity
+    description: >
+      Identity document, Aadhaar card, PAN card, passport, driving licence, voter ID,
+      birth certificate, date of birth, nationality, address proof, identification number,
+      government issued identification, ration card, student ID card.
+    topics: [aadhaar, pan card, passport, driving licence, voter id, birth certificate, address proof, identity card]
+
+  - name: Medical
+    description: >
+      Prescription, diagnosis, patient name, doctor, physician, hospital, clinic, medical
+      report, lab report, blood test, x-ray, scan report, medication, dosage, tablets,
+      symptoms, treatment, discharge summary, vaccination certificate, health insurance.
+    topics: [prescription, diagnosis, patient, doctor, hospital, lab report, blood test, medication, dosage, discharge summary, vaccination]
+
+  - name: Legal
+    description: >
+      Agreement, contract, terms and conditions, party of the first part, hereby, whereas,
+      indemnity, liability, jurisdiction, arbitration, breach of contract, non disclosure
+      agreement, NDA, lease, rental agreement, affidavit, notarised, power of attorney,
+      legal notice.
+    topics: [agreement, contract, terms and conditions, indemnity, liability, jurisdiction, nda, lease, affidavit, power of attorney, legal notice]
+
+  - name: Academic Admin
+    description: >
+      Marksheet, grade card, transcript, semester result, CGPA, SGPA, percentage,
+      admission letter, offer letter, fee receipt, tuition fee, scholarship, hall ticket,
+      admit card, examination timetable, attendance record, bonafide certificate,
+      migration certificate, degree certificate, provisional certificate.
+    topics: [marksheet, grade card, transcript, cgpa, sgpa, admission, fee receipt, scholarship, admit card, hall ticket, timetable, attendance, bonafide, degree certificate]
+
+  - name: Work
+    description: >
+      Resume, curriculum vitae, CV, cover letter, job application, offer letter,
+      employment contract, appointment letter, internship, experience certificate,
+      relieving letter, appraisal, performance review, meeting minutes, project proposal,
+      timesheet, company policy.
+    topics: [resume, cv, cover letter, job application, offer letter, internship, experience certificate, appraisal, meeting minutes, timesheet]
+
+  - name: Books
+    description: >
+      Textbook, ebook, reference book, chapter, table of contents, preface, index,
+      bibliography, ISBN, publisher, edition, author, novel, manual, handbook,
+      documentation, research paper, journal article, abstract, citations, references.
+    topics: [textbook, ebook, chapter, table of contents, isbn, publisher, edition, bibliography, research paper, journal, abstract]
+
+  - name: Personal
+    description: >
+      Personal notes, diary entry, journal, to-do list, shopping list, travel itinerary,
+      booking confirmation, ticket, hotel reservation, recipe, letter to a friend,
+      greeting card, photograph description, hobby, personal reminder.
+    topics: [diary, journal, to do list, shopping list, itinerary, booking, ticket, reservation, recipe, personal notes]

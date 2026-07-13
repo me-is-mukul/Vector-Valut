@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Build artifacts — the frozen app and the MSI are large and regenerable.
+build/
+dist/
+*.msi
+
+# Environments
+.venv/
+venv/
+.env
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local app data (never commit a user's index or their documents)
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+.tmp_migration/
+
+# The labeled evaluation corpus (roadmap.md §6.1): commit the manifest that says
+# what each file SHOULD be classified as, never the files themselves — they are real
+# personal documents.
+tests/corpus/files/
+!tests/corpus/manifest.yaml
+
+# OS
+.DS_Store
+Thumbs.db
+.claude

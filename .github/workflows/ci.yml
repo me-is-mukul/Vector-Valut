@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    # Windows, because that is the platform the product actually ships on (MSI, tray,
+    # pywebview) and the platform every test has been proven against.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # Core + the cheap document extractors. Torch/sentence-transformers stay out —
+      # they are a multi-GB install, and the tests that need the real embedding model
+      # skip themselves when it is absent (see the `embedder` fixture in conftest.py).
+      # The full 114-test suite runs locally with the [ml] extra installed.
+      - name: Install (core + dev + document extractors)
+        run: uv sync --group dev --extra docs
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format check
+        run: uv run ruff format --check .
+
+      - name: Types
+        run: uv run mypy
+
+      - name: Layering contract
+        run: uv run lint-imports
+
+      - name: Tests
+        run: uv run pytest -q
+
+      - name: Migrations are in sync with the models
+        # Catches the classic mistake: changing schema.py and forgetting the migration.
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check
+        env:
+          OSDC_DATA_DIR: ${{ runner.temp }}/osdc-ci
