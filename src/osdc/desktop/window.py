@@ -58,14 +58,45 @@ def is_hidden() -> bool:
     return _hidden.is_set()
 
 
-async def choose_folder() -> str | None:
-    """A real OS folder picker. Returns None in browser mode."""
+def pick_folder(title: str = "Choose a folder") -> str | None:
+    """A real OS folder picker, shown IN FRONT of the window. Blocking; call off the loop.
+
+    Why not ``window.create_file_dialog``: pywebview invokes the dialog on whatever thread
+    called it, while the owning window lives on the WinForms UI thread. Windows treats a
+    dialog whose owner belongs to another thread as unrelated for z-ordering, so it opens
+    *behind* the app — the classic "where did my dialog go" bug. The fix is to marshal the
+    call onto the window's own UI thread with ``Control.Invoke``, which makes the ownership
+    real and puts the dialog on top, modal, where it belongs.
+    """
     if current is None:
         return None
 
-    import webview
+    try:
+        return _owned_folder_dialog(title)
+    except Exception:
+        # Non-Windows backend, or pywebview internals moved. The fallback works
+        # everywhere; it just loses the z-order guarantee.
+        logger.exception("Owned folder dialog failed; falling back to pywebview's")
+        import webview
 
-    picked = current.create_file_dialog(webview.FOLDER_DIALOG)
-    if not picked:
-        return None
-    return str(picked[0])
+        picked = current.create_file_dialog(webview.FOLDER_DIALOG)
+        return str(picked[0]) if picked else None
+
+
+def _owned_folder_dialog(title: str) -> str | None:
+    from pathlib import Path
+
+    from System import Action  # type: ignore[import-not-found]  # pythonnet, via pywebview
+    from webview.platforms.winforms import BrowserView, OpenFolderDialog
+
+    form = BrowserView.instances[current.uid]
+    result: dict[str, tuple[str, ...] | None] = {"paths": None}
+
+    def show_on_ui_thread() -> None:
+        result["paths"] = OpenFolderDialog.show(form, str(Path.home()), False, title)
+
+    # Synchronous: returns only after the user closes the dialog.
+    form.Invoke(Action(show_on_ui_thread))
+
+    paths = result["paths"]
+    return str(paths[0]) if paths else None

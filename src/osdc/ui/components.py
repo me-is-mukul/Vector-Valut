@@ -11,7 +11,7 @@ from pathlib import Path
 from nicegui import ui
 
 from osdc.desktop import window
-from osdc.domain.models import OrganizePlan
+from osdc.domain.models import FileRecord, OrganizePlan
 from osdc.services.images import ImageHit
 from osdc.services.rag import Answer
 
@@ -148,6 +148,43 @@ def plan_preview(plan: OrganizePlan, on_apply: Handler, on_cancel: Handler) -> N
         )
 
 
+def recent_files(files: list[FileRecord], review_count: int = 0) -> None:
+    """What got filed while you were away — straight from the database, no model."""
+    with ui.column().classes("msg-bot w-full gap-3"):
+        if not files:
+            ui.label("Nothing has been filed yet.").classes("text-sm")
+            ui.label(
+                "Drop a folder into the chat, or add a watched folder in Settings and let "
+                "your next download file itself."
+            ).classes("dim text-xs")
+            return
+
+        ui.label("Recently filed").classes("text-sm")
+        with ui.card().classes("w-full p-2 gap-0"):
+            for record in files:
+                path = record.organized_path or record.original_path
+                with (
+                    ui.row()
+                    .classes("src items-center gap-3 px-3 py-2 w-full cursor-pointer")
+                    .on("click", lambda p=path: _reveal(p))
+                ):
+                    ui.icon("check_circle" if record.organized_path else "help_outline").classes(
+                        "text-sm"
+                    ).style("color: var(--accent)" if record.organized_path else "opacity:.4")
+                    with ui.column().classes("gap-0 flex-grow min-w-0"):
+                        ui.label(record.filename).classes("text-xs")
+                        ui.label(record.label or "waiting for your decision").classes("dim text-xs")
+                    if record.processed_at:
+                        ui.label(record.processed_at.strftime("%d %b, %H:%M")).classes(
+                            "dim text-xs mono"
+                        )
+        if review_count:
+            ui.label(
+                f"{review_count} file{'s' if review_count != 1 else ''} waiting in the "
+                "Library for your decision."
+            ).classes("dim text-xs")
+
+
 def plan_applied(moved: int, errors: list[str], on_undo: Handler) -> None:
     with ui.column().classes("msg-bot w-full gap-2"):
         ui.label(f"Filed {moved} file{'s' if moved != 1 else ''}.").classes("text-sm")
@@ -161,7 +198,7 @@ async def choose_folder(title: str) -> str | None:
     """A real OS folder picker in the desktop app; a typed path in browser mode."""
     if window.current is not None:
         # The native dialog is modal and blocks its thread, so it must not run on the loop.
-        return await asyncio.to_thread(_native_folder_dialog)
+        return await asyncio.to_thread(_native_folder_dialog, title)
 
     with ui.dialog() as dialog, ui.card().classes("w-96 p-4 gap-3"):
         ui.label(title).classes("text-sm")
@@ -177,11 +214,8 @@ async def choose_folder(title: str) -> str | None:
     return str(picked).strip() or None if picked else None
 
 
-def _native_folder_dialog() -> str | None:
-    import webview
-
-    picked = window.current.create_file_dialog(webview.FOLDER_DIALOG)
-    return str(picked[0]) if picked else None
+def _native_folder_dialog(title: str) -> str | None:
+    return window.pick_folder(title)
 
 
 # --- helpers ----------------------------------------------------------------

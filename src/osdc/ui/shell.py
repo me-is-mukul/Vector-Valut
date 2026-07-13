@@ -13,10 +13,13 @@ from nicegui import ui
 
 from osdc.ui import theme
 
+# Icon names must exist in the Material set: outlined variants use the `o_` prefix
+# (Quasar convention), not an `_outlined` suffix — an unknown name renders as nothing,
+# which is how Library and Images silently vanished from the rail in 0.1.0.
 NAV = (
     ("/", "chat_bubble_outline", "Chat"),
-    ("/library", "folder_outlined", "Library"),
-    ("/images", "photo_library_outlined", "Images"),
+    ("/library", "o_folder", "Library"),
+    ("/images", "o_photo_library", "Images"),
     ("/settings", "tune", "Settings"),
 )
 

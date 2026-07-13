@@ -41,6 +41,14 @@ class ChatPane:
         self.composer: ui.textarea
         self._plan: OrganizePlan | None = None
         self._busy = False
+        self._welcome_showing = True
+
+    def _begin(self) -> None:
+        """First real interaction clears the welcome hero so the conversation owns
+        the pane. (0.1.0 had this condition inverted, so the hero never left.)"""
+        if self._welcome_showing:
+            self.thread.clear()
+            self._welcome_showing = False
 
     # ------------------------------------------------------------------
     def build(self) -> None:
@@ -55,42 +63,42 @@ class ChatPane:
                 self._composer()
 
     def _welcome(self) -> None:
+        """The four chips launch their skill directly — a folder picker opens, the
+        composer focuses, recent files render. They never type a canned prompt into the
+        chat on the user's behalf; watching the app talk to itself is uncanny, and the
+        example queries were meaningless against a real library anyway."""
         with ui.column().classes("w-full items-center gap-8 mt-24"):
             ui.label("What can I help you find?").classes("text-3xl font-semibold")
             ui.label("Everything stays on your machine.").classes("dim text-sm -mt-6")
 
             with ui.grid(columns=2).classes("w-full gap-3 mt-4"):
-                for icon, title, sub, prompt in (
+                for icon, title, sub, action in (
                     (
                         "folder_open",
                         "Organize a folder",
                         "Read every file and propose where it goes",
-                        "organize my Downloads folder",
+                        self._pick_folder,
                     ),
                     (
                         "search",
                         "Ask your documents",
                         "Answers with the file and page cited",
-                        "what are my notes on paging?",
+                        self._focus_composer,
                     ),
                     (
                         "image_search",
                         "Find a photo",
                         "Describe what is in it",
-                        "photos of a man holding a baby",
+                        self._photo_skill,
                     ),
                     (
                         "history",
                         "Recent activity",
                         "What got filed while you were away",
-                        "what did you file recently?",
+                        self._recent_activity,
                     ),
                 ):
-                    with (
-                        ui.column()
-                        .classes("chip gap-1")
-                        .on("click", lambda p=prompt: self._submit(p))
-                    ):
+                    with ui.column().classes("chip gap-1").on("click", action):
                         ui.icon(icon).classes("text-lg").style("color: var(--accent)")
                         ui.label(title).classes("text-sm font-medium")
                         ui.label(sub).classes("dim text-xs")
@@ -129,7 +137,7 @@ class ChatPane:
         self.composer.value = ""
 
         try:
-            self.thread.clear() if not self.thread.default_slot.children else None
+            self._begin()
             with self.thread:
                 components.user_message(text)
             await self._route(text)
@@ -250,16 +258,39 @@ class ChatPane:
             )
         await self._scroll()
 
-    # --- pickers --------------------------------------------------------
+    # --- skills, launched directly from the welcome chips ----------------
     async def _pick_folder(self) -> None:
         folder = await components.choose_folder("Choose a folder to organize")
         if folder:
             await self._submit(f"organize {folder}")
 
+    def _focus_composer(self) -> None:
+        self.composer.run_method("focus")
+
+    async def _photo_skill(self) -> None:
+        """Photos indexed → put the cursor where the description goes. None yet →
+        the only useful first step is picking the folder, so open that dialog."""
+        if self.c.images.count() > 0:
+            self.composer.value = "find photos of "
+            self.composer.run_method("focus")
+            return
+        await self._pick_image_folder()
+
+    async def _recent_activity(self) -> None:
+        """Deterministic — straight from the database, no LLM in the loop. (In 0.1.0
+        this chip typed a canned question that retrieval could never answer.)"""
+        self._begin()
+        files = await self.c.library.list_files(10)
+        stats = await self.c.library.stats()
+        with self.thread:
+            components.recent_files(files, review_count=stats.review_count)
+        await self._scroll()
+
     async def _pick_image_folder(self) -> None:
         folder = await components.choose_folder("Choose a folder of photos")
         if not folder:
             return
+        self._begin()
         with self.thread:
             components.user_message(f"index the photos in {folder}")
             thinking = components.thinking("Looking at every photo… (this takes a moment)")

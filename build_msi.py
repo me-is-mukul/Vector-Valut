@@ -30,7 +30,32 @@ from cx_Freeze import Executable, setup
 sys.setrecursionlimit(10_000)
 
 ROOT = Path(__file__).parent
-VERSION = "0.1.0"
+VERSION = "0.1.1"
+
+
+def _make_icon() -> Path:
+    """Draw the app icon and emit a multi-resolution .ico.
+
+    Same art as the tray icon, drawn in code — so the exe, the taskbar, the title bar,
+    the Start Menu shortcut and the tray all match, and there is no binary asset to keep
+    in sync or lose. Windows picks the right size per context from the .ico.
+    """
+    from PIL import Image, ImageDraw
+
+    size = 256
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle([16, 16, size - 16, size - 16], radius=56, fill=(99, 102, 241, 255))
+    d.rounded_rectangle([64, 80, 192, 120], radius=12, fill=(255, 255, 255, 235))
+    d.rounded_rectangle([64, 136, 160, 176], radius=12, fill=(255, 255, 255, 160))
+
+    out = ROOT / "build" / "icon.ico"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    img.save(out, sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+    return out
+
+
+ICON = _make_icon()
 
 # A stable GUID. Change it and Windows treats the next build as a *different product*, so
 # users end up with two Vector Vaults installed side by side instead of an upgrade.
@@ -105,7 +130,28 @@ bdist_msi_options = {
                 r'"[TARGETDIR]VectorVault.exe" --tray',
                 "TARGETDIR",
             )
-        ]
+        ],
+        # Desktop shortcut. Always created rather than behind a checkbox: cx_Freeze's
+        # generated MSI has no optional-features dialog, and grafting a custom checkbox
+        # onto its Control tables is exactly the kind of installer surgery that breaks
+        # silently on the next Windows update. A shortcut the user can delete beats a
+        # dialog that might not render. (A real checkbox means migrating to WiX.)
+        "Shortcut": [
+            (
+                "DesktopShortcut",  # Shortcut key
+                "DesktopFolder",  # placed on the user's Desktop
+                "Vector Vault",  # display name
+                "TARGETDIR",  # component
+                "[TARGETDIR]VectorVault.exe",
+                None,  # arguments — none: clicking it should OPEN the window
+                None,  # description
+                None,  # hotkey
+                None,  # icon (falls back to the exe's own)
+                None,  # icon index
+                None,  # show command
+                "TARGETDIR",  # working directory
+            )
+        ],
     },
 }
 
@@ -115,6 +161,9 @@ executables = [
         # "gui" = no console window behind the app. (cx_Freeze 8 renamed this from Win32GUI.)
         base="gui" if sys.platform == "win32" else None,
         target_name="VectorVault.exe",
+        # Embedded in the exe resource — which is what the title bar, taskbar, Explorer
+        # and both shortcuts display. Without it, Windows shows the generic Python icon.
+        icon=str(ICON),
         shortcut_name="Vector Vault",
         shortcut_dir="ProgramMenuFolder",
         copyright="Mukul and Dhvani",
