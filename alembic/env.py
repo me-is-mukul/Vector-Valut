@@ -15,6 +15,9 @@ from osdc.config import paths
 from osdc.storage.schema import Base
 
 config = context.config
+# SQLite cannot create a database inside a directory that does not exist yet — and on a
+# fresh checkout (or a CI runner) OSDC_DATA_DIR points at exactly such a directory.
+paths.ensure_dirs()
 config.set_main_option("sqlalchemy.url", paths.db_url())
 
 if config.config_file_name is not None:

@@ -75,6 +75,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          gh release view "${{ github.ref_name }}" 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release ${{ github.ref_name }} already exists - leaving it alone."
+            exit 0
+          }
           $msi = Get-ChildItem "dist\VectorVault-*.msi" | Select-Object -First 1
           $sha = (Get-FileHash $msi.FullName -Algorithm SHA256).Hash
           Copy-Item RELEASE_NOTES.md body.md
