@@ -17,10 +17,11 @@ run locally. The app makes no network calls except to download its own models, o
 
 Three kinds of model, with one rule between them: **retrieval decides, the LLM only writes.**
 
-- **Language models for meaning (NLM/embeddings)** — `bge-small` turns every chunk of every
-  document into a vector, so "where is my rent contract" finds the contract even though no
-  file is named that. **CLIP** does the same for photos: images and text land in one shared
-  vector space, which is why *"a man lifting a baby"* finds the picture with no tags.
+- **NLP (natural-language processing / embeddings)** — `bge-small` turns every chunk of
+  every document into a vector, so "where is my rent contract" finds the contract even
+  though no file is named that. **CLIP** does the same for photos: images and text land in
+  one shared vector space, which is why *"a man lifting a baby"* finds the picture with no
+  tags.
 - **RAG (retrieval-augmented generation)** — the discipline that keeps the chatbot honest.
   Your question is embedded, the nearest document chunks are retrieved, and anything below a
   measured relevance floor is thrown away. Only what survives is handed to the LLM.
@@ -31,13 +32,13 @@ Three kinds of model, with one rule between them: **retrieval decides, the LLM o
 ```mermaid
 flowchart TD
     subgraph index ["Indexing — happens once per file"]
-        DOC["Documents"] --> EMB["Embedding model<br/>(bge-small)"]
+        DOC["Documents"] --> EMB["NLP embedding model<br/>(bge-small)"]
         PHOTO["Photos"] --> CLIP["CLIP vision model"]
         EMB --> VS[("Local vector store")]
         CLIP --> VS
     end
     subgraph rag ["RAG — happens per question"]
-        Q["Your question"] --> EMB2["Embedding model"]
+        Q["Your question"] --> EMB2["NLP embedding model"]
         EMB2 --> RET["Retrieve nearest chunks"]
         VS --> RET
         RET -->|"below relevance floor"| REF["Refuses to guess —<br/>LLM never called"]
