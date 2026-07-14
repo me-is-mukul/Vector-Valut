@@ -13,6 +13,39 @@ you find anything by describing it — including photos.
 **Nothing leaves your machine.** The language model, the embeddings and the image model all
 run locally. The app makes no network calls except to download its own models, once.
 
+## The AI inside
+
+Three kinds of model, with one rule between them: **retrieval decides, the LLM only writes.**
+
+- **Language models for meaning (NLM/embeddings)** — `bge-small` turns every chunk of every
+  document into a vector, so "where is my rent contract" finds the contract even though no
+  file is named that. **CLIP** does the same for photos: images and text land in one shared
+  vector space, which is why *"a man lifting a baby"* finds the picture with no tags.
+- **RAG (retrieval-augmented generation)** — the discipline that keeps the chatbot honest.
+  Your question is embedded, the nearest document chunks are retrieved, and anything below a
+  measured relevance floor is thrown away. Only what survives is handed to the LLM.
+- **LLM (qwen2.5, via Ollama)** — does exactly two jobs: phrases answers *from the retrieved
+  passages only*, and writes filing plans as structured data. If retrieval finds nothing, it
+  is never called; it cannot run commands, ever.
+
+```mermaid
+flowchart TD
+    subgraph index ["Indexing — happens once per file"]
+        DOC["Documents"] --> EMB["Embedding model<br/>(bge-small)"]
+        PHOTO["Photos"] --> CLIP["CLIP vision model"]
+        EMB --> VS[("Local vector store")]
+        CLIP --> VS
+    end
+    subgraph rag ["RAG — happens per question"]
+        Q["Your question"] --> EMB2["Embedding model"]
+        EMB2 --> RET["Retrieve nearest chunks"]
+        VS --> RET
+        RET -->|"below relevance floor"| REF["Refuses to guess —<br/>LLM never called"]
+        RET -->|"relevant"| LLM["Local LLM (qwen2.5)<br/>phrases the answer"]
+        LLM --> ANS["Answer, with file and<br/>page cited"]
+    end
+```
+
 ## Demo
 
 [Watch the demo](ADD_VIDEO_LINK_HERE) <!-- paste the video link here -->
@@ -50,15 +83,6 @@ flowchart LR
     D --> E{"You review"}
     E -->|Apply| F["Logged, reversible<br/>moves into the library"]
     E -->|Cancel| G["Nothing moves"]
-```
-
-Search never lets the model improvise:
-
-```mermaid
-flowchart LR
-    Q["Question, or a<br/>photo description"] --> R["Search local vectors<br/>(document chunks, CLIP)"]
-    R -->|nothing relevant| N["Refuses — the LLM<br/>is never called"]
-    R -->|relevant hits| L["Cited answer,<br/>or the matching photos"]
 ```
 
 ## The rules it will not break
