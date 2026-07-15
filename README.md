@@ -7,6 +7,11 @@
 ![Version](https://img.shields.io/badge/Version-0.1.2-brightgreen)
 [![CI](https://github.com/me-is-mukul/Vector-Valut/actions/workflows/ci.yml/badge.svg)](https://github.com/me-is-mukul/Vector-Valut/actions/workflows/ci.yml)
 
+## Demo
+
+[Watch the demo](https://drive.google.com/file/d/1nlfQtVuxyyMeD46pR3pQQ3dz2ZVfYgKq/view?usp=drivesdk) <!-- paste the video link here -->
+
+
 ## Install
 **The documentation is deployed online btw**
 [docs-online-for-this-application-msi-installer](https://vault.doc.meismukul.in)
@@ -71,9 +76,6 @@ flowchart TD
     end
 ```
 
-## Demo
-
-[Watch the demo](ADD_VIDEO_LINK_HERE) <!-- paste the video link here -->
 
 <!-- Screenshots: drop images into docs/screenshots/ and uncomment.
 ![Organizing a folder from the chat](docs/screenshots/chat.png)
