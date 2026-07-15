@@ -7,6 +7,30 @@
 ![Version](https://img.shields.io/badge/Version-0.1.2-brightgreen)
 [![CI](https://github.com/me-is-mukul/Vector-Valut/actions/workflows/ci.yml/badge.svg)](https://github.com/me-is-mukul/Vector-Valut/actions/workflows/ci.yml)
 
+## Install
+**The documentation is deployed online btw**
+[docs-online-for-this-application-msi-installer](https://vault.doc.meismukul.in)
+
+**Windows installer:**
+[VectorVault-0.1.2-win64.msi](https://github.com/me-is-mukul/Vector-Valut/releases/download/v0.1.2/VectorVault-0.1.2-win64.msi)
+(from [Releases](https://github.com/me-is-mukul/Vector-Valut/releases))
+
+On first run it detects your hardware, recommends a language model that will actually fit in
+your GPU, installs [Ollama](https://ollama.com), and downloads the weights with a progress
+bar. That recommendation matters more than it sounds: pick a model too big for the VRAM and
+Ollama silently spills half of it onto the CPU, so the app "works" but every answer takes
+forty seconds and you conclude the product is slow. After setup, it is fully offline.
+
+**From source:**
+
+```bash
+uv sync --extra vector --extra docs --extra ml --extra rag --extra desktop
+uv run osdc
+```
+
+A bare `uv sync` removes the extras again — always pass them.
+
+
 A local-first desktop app that reads your documents, files them where they belong, and lets
 you find anything by describing it — including photos.
 
@@ -115,27 +139,6 @@ library copy would then destroy the only copy.
 - Ten years of photos, found by describing what is visible in them.
 - All of it on medical and financial records, precisely because nothing is uploaded
   anywhere.
-
-## Install
-
-**Windows installer:**
-[VectorVault-0.1.2-win64.msi](https://github.com/me-is-mukul/Vector-Valut/releases/download/v0.1.2/VectorVault-0.1.2-win64.msi)
-(from [Releases](https://github.com/me-is-mukul/Vector-Valut/releases))
-
-On first run it detects your hardware, recommends a language model that will actually fit in
-your GPU, installs [Ollama](https://ollama.com), and downloads the weights with a progress
-bar. That recommendation matters more than it sounds: pick a model too big for the VRAM and
-Ollama silently spills half of it onto the CPU, so the app "works" but every answer takes
-forty seconds and you conclude the product is slow. After setup, it is fully offline.
-
-**From source:**
-
-```bash
-uv sync --extra vector --extra docs --extra ml --extra rag --extra desktop
-uv run osdc
-```
-
-A bare `uv sync` removes the extras again — always pass them.
 
 ## Sample inputs and expected outputs
 
