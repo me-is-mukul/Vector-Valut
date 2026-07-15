@@ -137,6 +137,30 @@ uv run osdc
 
 A bare `uv sync` removes the extras again — always pass them.
 
+## Sample inputs and expected outputs
+
+Everything goes through the chat box.
+
+| You type (or click) | What happens |
+|---|---|
+| `organize C:\Users\you\Downloads` | It reads every file, then shows a plan: each file, its destination folder, and the reason. Nothing moves until you click **Apply**; **Undo** appears after. |
+| `organize my downloads folder` | Same — bare folder names resolve against your home directory. |
+| `what does my rent agreement say about the notice period?` | A cited answer: the clause, then a **Sources** list with the file name and page number. Click a source to reveal the file in Explorer. |
+| `who won the 1987 F1 championship?` | *"I couldn't find anything in your library about that."* — nothing relevant is in your documents, so the model is never called. |
+| The picture button → pick a photo folder | *"Looked at 132 photos."* with live progress while it works. |
+| `find photos of a man lifting a baby` | A grid of matching photos with similarity scores; click one to open its location. |
+| A new PDF lands in a watched folder | Filed automatically within seconds (or queued for review if confidence is low) — window closed, tray icon running. |
+
+## Submission documents
+
+| Document | Contents |
+|---|---|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System diagram, model pipeline, data flow, local/cloud split, key decisions |
+| [TECHNICAL_REPORT.md](TECHNICAL_REPORT.md) | Models, quantization, measured latency and memory, tested device, local-AI verification |
+| [EVALUATION.md](EVALUATION.md) | How it was measured, results, baseline comparison, known failure cases |
+| [PRIVACY.md](PRIVACY.md) | Data handling, permissions, safety mechanisms, residual risks |
+| [ATTRIBUTION.md](ATTRIBUTION.md) | Pretrained models, libraries, licenses |
+
 **Releasing:** bump the version in `pyproject.toml` and `build_msi.py`, update
 `RELEASE_NOTES.md`, then push a tag:
 
